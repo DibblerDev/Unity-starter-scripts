@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class playerController : MonoBehaviour
 {
@@ -16,8 +15,15 @@ public class playerController : MonoBehaviour
     public float maxAirAcceleration = 20f;
 
     public float jumpPower = 10f;
+
+    public float stamina = 100f;
+    public float staminaSprintDrainRate = 20f;
+    public float staminaJumpDrain = 10f;
+    public float staminaRecoveryThreshold = 25f;
+    public float staminaRecoverySpeed = 5f;
     public bool grounded;
     public bool running;
+    public bool canRun;
 
     Rigidbody rb;
 
@@ -32,10 +38,13 @@ public class playerController : MonoBehaviour
     float acceleration;
     float friction;
     float speed;
+    float drain;
+    float recover;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        Cursor.lockState = CursorLockMode.Locked;
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -70,6 +79,10 @@ public class playerController : MonoBehaviour
 
     private void Update()
     {
+        stamina = Mathf.Clamp(stamina, 0f, 100f);
+        drain = staminaSprintDrainRate * Time.deltaTime;
+        recover = staminaRecoverySpeed * Time.deltaTime;
+
         speed = running ? maxRunSpeed : maxSpeed;
         direction = transform.forward * Input.GetAxisRaw("Vertical") + transform.right * Input.GetAxisRaw("Horizontal");
         desiredVelocity = direction * Mathf.Max(speed - friction);
@@ -84,8 +97,22 @@ public class playerController : MonoBehaviour
         if (grounded && Input.GetKeyDown(KeyCode.Space))
         {
             rb.AddForce(Vector3.up * jumpPower, ForceMode.Impulse);
+            stamina -= staminaJumpDrain;
         }
-        running = Input.GetKey(KeyCode.LeftShift) && grounded;
+        canRun |= stamina >= staminaRecoveryThreshold;
+        running = Input.GetKey(KeyCode.LeftShift) && grounded && canRun;
+        if (running)
+        {
+                stamina -= drain;
+        }
+        else
+        {
+            if (stamina < 100) stamina += recover;
+        }
+        if(stamina <= 0)
+        {
+            canRun = false;
+        }
     }
     private void FixedUpdate()
     {
